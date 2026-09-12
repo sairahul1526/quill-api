@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: Quill Cloud API
+  version: 2.6.0
+  description: REST API for durable tasks, queues and schedules.
+servers:
+  - url: https://api.quillstack-lab.example/v1
+security:
+  - bearerAuth: []
+paths:
+  /tasks:
+    get:
+      summary: List tasks
+      responses:
+        '200': { description: Task list }
+    post:
+      summary: Create a task
+      responses:
+        '201': { description: Task created }
+  /tasks/{id}/cancel:
+    post:
+      summary: Cancel a task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Task cancelled }
+        '404': { description: Task not found }
+  /queues:
+    get: { summary: List queues, responses: { '200': { description: Queue list } } }
+    post: { summary: Create a queue, responses: { '201': { description: Queue created } } }
+  /schedules:
+    get: { summary: List schedules, responses: { '200': { description: Schedule list } } }
+    post: { summary: Create a schedule, responses: { '201': { description: Schedule created } } }
+  /webhooks:
+    post: { summary: Register a webhook endpoint, responses: { '201': { description: Endpoint registered } } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
