@@ -12,6 +12,8 @@ import (
 
 var ErrNotFound = errors.New("resource not found")
 var ErrConflict = errors.New("resource already exists")
+var ErrQueuePaused = errors.New("queue is paused")
+var ErrNoTaskAvailable = errors.New("no task available")
 
 type Memory struct {
 	mu        sync.RWMutex
@@ -46,6 +48,30 @@ func (m *Memory) ListTasks() []model.Task {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
 	return out
+}
+func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	queue, ok := m.queues[queueName]
+	if !ok {
+		return model.Task{}, ErrNotFound
+	}
+	if queue.Paused {
+		return model.Task{}, ErrQueuePaused
+	}
+	var next model.Task
+	for _, task := range m.tasks {
+		if task.Queue == queueName && task.State == "queued" && (next.ID == "" || task.CreatedAt.Before(next.CreatedAt)) {
+			next = task
+		}
+	}
+	if next.ID == "" {
+		return model.Task{}, ErrNoTaskAvailable
+	}
+	next.State = "running"
+	next.Attempts++
+	m.tasks[next.ID] = next
+	return next, nil
 }
 func (m *Memory) CancelTask(id string) (model.Task, error) {
 	m.mu.Lock()
@@ -100,6 +126,23 @@ func (m *Memory) ListQueues() []model.Queue {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+func (m *Memory) PauseQueue(name string) (model.Queue, error) {
+	return m.setQueuePaused(name, true)
+}
+func (m *Memory) ResumeQueue(name string) (model.Queue, error) {
+	return m.setQueuePaused(name, false)
+}
+func (m *Memory) setQueuePaused(name string, paused bool) (model.Queue, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	queue, ok := m.queues[name]
+	if !ok {
+		return model.Queue{}, ErrNotFound
+	}
+	queue.Paused = paused
+	m.queues[name] = queue
+	return queue, nil
 }
 func (m *Memory) CreateSchedule(input model.CreateScheduleRequest) model.Schedule {
 	m.mu.Lock()
