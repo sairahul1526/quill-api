@@ -7,10 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sairahul1526/quill-api/internal/model"
 	"github.com/sairahul1526/quill-api/internal/store"
 )
 
 func testServer() http.Handler { return New(store.NewMemory(), "test-token", "hook-secret") }
+func testServerWithStore(memory *store.Memory) http.Handler {
+	return New(memory, "test-token", "hook-secret")
+}
 func TestTaskRequiresBearerToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/tasks", nil))
@@ -39,6 +43,20 @@ func TestCreateAndCancelTask(t *testing.T) {
 	h.ServeHTTP(out, cancel)
 	if out.Code != 200 {
 		t.Fatalf("cancel status=%d", out.Code)
+	}
+}
+func TestCancelFinishedTaskReturnsConflict(t *testing.T) {
+	memory := store.NewMemory()
+	task := memory.CreateTask(model.CreateTaskRequest{Queue: "emails", Payload: map[string]string{"recipient": "a@example.test"}})
+	if _, err := memory.CompleteTask(task.ID); err != nil {
+		t.Fatalf("complete task: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/tasks/"+task.ID+"/cancel", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServerWithStore(memory).ServeHTTP(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("cancel status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusConflict)
 	}
 }
 func TestTaskRetriesDefaultToFive(t *testing.T) {

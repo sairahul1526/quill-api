@@ -63,7 +63,7 @@ func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, 404, "task not found")
 	case errors.Is(err, store.ErrConflict):
-		writeError(w, 409, "task cannot be cancelled")
+		writeError(w, http.StatusConflict, "task already finished or cancelled")
 	case err != nil:
 		writeError(w, 500, "could not cancel task")
 	default:
