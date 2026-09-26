@@ -61,6 +61,20 @@ func (m *Memory) CancelTask(id string) (model.Task, error) {
 	m.tasks[id] = task
 	return task, nil
 }
+func (m *Memory) CompleteTask(id string) (model.Task, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	task, ok := m.tasks[id]
+	if !ok {
+		return model.Task{}, ErrNotFound
+	}
+	if task.State == "completed" || task.State == "cancelled" {
+		return model.Task{}, ErrConflict
+	}
+	task.State = "completed"
+	m.tasks[id] = task
+	return task, nil
+}
 func (m *Memory) CreateQueue(input model.CreateQueueRequest) (model.Queue, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
