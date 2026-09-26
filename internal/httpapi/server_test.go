@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -103,6 +104,59 @@ func TestCreateQueueRejectsInvalidConcurrency(t *testing.T) {
 	testServer().ServeHTTP(rec, req)
 	if rec.Code != 422 {
 		t.Fatalf("status=%d, want 422", rec.Code)
+	}
+}
+func TestPauseQueueAcceptsTasksAndResumeAllowsWorkersToClaim(t *testing.T) {
+	memory := store.NewMemory()
+	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "emails", Concurrency: 4}); err != nil {
+		t.Fatalf("create queue: %v", err)
+	}
+	h := testServerWithStore(memory)
+	request := httptest.NewRequest(http.MethodPost, "/v1/queues/emails/pause", nil)
+	request.Header.Set("Authorization", "Bearer test-token")
+	paused := httptest.NewRecorder()
+	h.ServeHTTP(paused, request)
+	if paused.Code != http.StatusOK {
+		t.Fatalf("pause status=%d body=%s", paused.Code, paused.Body.String())
+	}
+	var queue model.Queue
+	if err := json.Unmarshal(paused.Body.Bytes(), &queue); err != nil {
+		t.Fatal(err)
+	}
+	if !queue.Paused {
+		t.Fatal("queue was not marked paused")
+	}
+
+	create := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{"recipient":"a@example.test"}}`))
+	create.Header.Set("Authorization", "Bearer test-token")
+	created := httptest.NewRecorder()
+	h.ServeHTTP(created, create)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create while paused status=%d body=%s", created.Code, created.Body.String())
+	}
+	if _, err := memory.ClaimTask("emails"); !errors.Is(err, store.ErrQueuePaused) {
+		t.Fatalf("claim while paused error=%v, want ErrQueuePaused", err)
+	}
+
+	resume := httptest.NewRequest(http.MethodPost, "/v1/queues/emails/resume", nil)
+	resume.Header.Set("Authorization", "Bearer test-token")
+	resumed := httptest.NewRecorder()
+	h.ServeHTTP(resumed, resume)
+	if resumed.Code != http.StatusOK {
+		t.Fatalf("resume status=%d body=%s", resumed.Code, resumed.Body.String())
+	}
+	if err := json.Unmarshal(resumed.Body.Bytes(), &queue); err != nil {
+		t.Fatal(err)
+	}
+	if queue.Paused {
+		t.Fatal("queue remained paused after resume")
+	}
+	claimed, err := memory.ClaimTask("emails")
+	if err != nil {
+		t.Fatalf("claim after resume: %v", err)
+	}
+	if claimed.State != "running" {
+		t.Fatalf("claimed task state=%q, want running", claimed.State)
 	}
 }
 func TestWebhookRejectsMissingSignature(t *testing.T) {

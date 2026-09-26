@@ -16,3 +16,7 @@ Set QUILL_API_TOKEN and WEBHOOK_SECRET, then run go run ./cmd/api. The server li
 - POST /webhooks/tasks (HMAC-SHA256 signature required)
 
 The in-memory store keeps this sample self-contained. A production deployment would use a durable database and worker pool. The API default retry policy allows 5 attempts.
+
+## Pausing a queue
+
+Call `POST /v1/queues/{name}/pause` to stop workers from claiming queued tasks. The API continues to accept new tasks for that queue while it is paused. Call `POST /v1/queues/{name}/resume` to let workers claim queued tasks again.

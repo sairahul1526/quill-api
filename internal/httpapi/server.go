@@ -37,6 +37,8 @@ func (s *Server) routes() {
 	p.HandleFunc("POST /v1/tasks/{id}/cancel", s.cancelTask)
 	p.HandleFunc("GET /v1/queues", s.listQueues)
 	p.HandleFunc("POST /v1/queues", s.createQueue)
+	p.HandleFunc("POST /v1/queues/{name}/pause", s.pauseQueue)
+	p.HandleFunc("POST /v1/queues/{name}/resume", s.resumeQueue)
 	p.HandleFunc("GET /v1/schedules", s.listSchedules)
 	p.HandleFunc("POST /v1/schedules", s.createSchedule)
 	p.HandleFunc("POST /v1/webhooks", s.createWebhook)
@@ -88,6 +90,30 @@ func (s *Server) createQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 201, q)
+}
+func (s *Server) pauseQueue(w http.ResponseWriter, r *http.Request) {
+	s.setQueuePaused(w, r, true)
+}
+func (s *Server) resumeQueue(w http.ResponseWriter, r *http.Request) {
+	s.setQueuePaused(w, r, false)
+}
+func (s *Server) setQueuePaused(w http.ResponseWriter, r *http.Request, paused bool) {
+	var queue model.Queue
+	var err error
+	if paused {
+		queue, err = s.store.PauseQueue(r.PathValue("name"))
+	} else {
+		queue, err = s.store.ResumeQueue(r.PathValue("name"))
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "queue not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not update queue state")
+		return
+	}
+	writeJSON(w, http.StatusOK, queue)
 }
 func (s *Server) listSchedules(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, 200, s.store.ListSchedules())

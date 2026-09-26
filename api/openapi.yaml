@@ -57,6 +57,29 @@ paths:
                 retries: { type: integer, minimum: 0, default: 5, description: Retry count; defaults to 5 when omitted. }
                 maxAttempts: { type: integer, minimum: 0, deprecated: true, description: Legacy alias for retries. }
       responses: { '201': { description: Queue created } }
+  /queues/{name}/pause:
+    post:
+      summary: Pause a queue
+      description: New tasks remain accepted, but workers cannot claim queued tasks until the queue is resumed.
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Queue paused }
+        '404': { description: Queue not found }
+  /queues/{name}/resume:
+    post:
+      summary: Resume a queue
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Queue resumed }
+        '404': { description: Queue not found }
   /schedules:
     get: { summary: List schedules, responses: { '200': { description: Schedule list } } }
     post: { summary: Create a schedule, responses: { '201': { description: Schedule created } } }

@@ -18,6 +18,7 @@ type Queue struct {
 	Concurrency int    `json:"concurrency"`
 	MaxAttempts int    `json:"maxAttempts"`
 	Retries     int    `json:"retries"`
+	Paused      bool   `json:"paused"`
 }
 
 type Schedule struct {
