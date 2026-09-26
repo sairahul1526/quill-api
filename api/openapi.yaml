@@ -25,6 +25,7 @@ paths:
               properties:
                 queue: { type: string }
                 payload: { type: object, additionalProperties: { type: string } }
+                priority: { type: string, enum: [low, normal, high], default: normal, description: Task priority; higher-priority tasks are dequeued first. }
                 retries: { type: integer, minimum: 0, default: 5, description: Retry count; defaults to 5 when omitted. }
       responses:
         '201': { description: Task created }

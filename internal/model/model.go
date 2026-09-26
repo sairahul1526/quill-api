@@ -2,10 +2,23 @@ package model
 
 import "time"
 
+type TaskPriority string
+
+const (
+	PriorityLow    TaskPriority = "low"
+	PriorityNormal TaskPriority = "normal"
+	PriorityHigh   TaskPriority = "high"
+)
+
+func (p TaskPriority) Valid() bool {
+	return p == PriorityLow || p == PriorityNormal || p == PriorityHigh
+}
+
 type Task struct {
 	ID          string            `json:"id"`
 	Queue       string            `json:"queue"`
 	Payload     map[string]string `json:"payload"`
+	Priority    TaskPriority      `json:"priority"`
 	State       string            `json:"state"`
 	Attempts    int               `json:"attempts"`
 	Retries     int               `json:"retries"`
@@ -32,6 +45,7 @@ type Schedule struct {
 type CreateTaskRequest struct {
 	Queue       string            `json:"queue"`
 	Payload     map[string]string `json:"payload"`
+	Priority    *TaskPriority     `json:"priority,omitempty"`
 	ScheduledAt *time.Time        `json:"scheduledAt,omitempty"`
 	Retries     *int              `json:"retries,omitempty"`
 }

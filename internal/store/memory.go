@@ -35,7 +35,11 @@ func (m *Memory) CreateTask(input model.CreateTaskRequest) model.Task {
 	if input.Retries != nil {
 		retries = *input.Retries
 	}
-	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, State: "queued", Retries: retries, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
+	priority := model.PriorityNormal
+	if input.Priority != nil {
+		priority = *input.Priority
+	}
+	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, Priority: priority, State: "queued", Retries: retries, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
 	m.tasks[task.ID] = task
 	return task
 }
@@ -61,7 +65,11 @@ func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
 	}
 	var next model.Task
 	for _, task := range m.tasks {
-		if task.Queue == queueName && task.State == "queued" && (next.ID == "" || task.CreatedAt.Before(next.CreatedAt)) {
+		if task.Queue != queueName || task.State != "queued" {
+			continue
+		}
+		if next.ID == "" || priorityRank(task.Priority) > priorityRank(next.Priority) ||
+			(priorityRank(task.Priority) == priorityRank(next.Priority) && task.CreatedAt.Before(next.CreatedAt)) {
 			next = task
 		}
 	}
@@ -73,6 +81,18 @@ func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
 	m.tasks[next.ID] = next
 	return next, nil
 }
+
+func priorityRank(priority model.TaskPriority) int {
+	switch priority {
+	case model.PriorityHigh:
+		return 3
+	case model.PriorityLow:
+		return 1
+	default:
+		return 2
+	}
+}
+
 func (m *Memory) CancelTask(id string) (model.Task, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
