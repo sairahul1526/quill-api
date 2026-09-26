@@ -55,6 +55,7 @@ paths:
               properties:
                 name: { type: string }
                 concurrency: { type: integer, minimum: 1 }
+                max_concurrency: { type: integer, minimum: 1, description: Maximum concurrently running tasks from this queue; omitted means unlimited. }
                 retries: { type: integer, minimum: 0, default: 5, description: Retry count; defaults to 5 when omitted. }
                 maxAttempts: { type: integer, minimum: 0, deprecated: true, description: Legacy alias for retries. }
       responses: { '201': { description: Queue created } }
