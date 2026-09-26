@@ -4,7 +4,7 @@ info:
   version: 2.6.0
   description: REST API for durable tasks, queues and schedules.
 servers:
-  - url: https://api.quillstack-lab.example/v1
+  - url: https://api.quillstack.example/v1
 security:
   - bearerAuth: []
 paths:
