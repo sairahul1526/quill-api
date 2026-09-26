@@ -57,6 +57,10 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "queue and payload are required")
 		return
 	}
+	if in.Priority != nil && !in.Priority.Valid() {
+		writeError(w, 422, "priority must be low, normal or high")
+		return
+	}
 	writeJSON(w, 201, s.store.CreateTask(in))
 }
 func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {
