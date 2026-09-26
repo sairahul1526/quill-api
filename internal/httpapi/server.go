@@ -22,6 +22,15 @@ type Server struct {
 	mux                  *http.ServeMux
 }
 
+type queueListItem struct {
+	Name           string `json:"name"`
+	Concurrency    int    `json:"concurrency"`
+	MaxConcurrency any    `json:"max_concurrency"`
+	MaxAttempts    int    `json:"maxAttempts"`
+	Retries        int    `json:"retries"`
+	Paused         bool   `json:"paused"`
+}
+
 func New(memory *store.Memory, token, secret string) http.Handler {
 	s := &Server{store: memory, token: token, webhookSecret: secret, mux: http.NewServeMux()}
 	s.routes()
@@ -77,7 +86,23 @@ func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func (s *Server) listQueues(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, 200, s.store.ListQueues())
+	queues := s.store.ListQueues()
+	items := make([]queueListItem, 0, len(queues))
+	for _, queue := range queues {
+		var maxConcurrency any = "unlimited"
+		if queue.MaxConcurrency != nil {
+			maxConcurrency = *queue.MaxConcurrency
+		}
+		items = append(items, queueListItem{
+			Name:           queue.Name,
+			Concurrency:    queue.Concurrency,
+			MaxConcurrency: maxConcurrency,
+			MaxAttempts:    queue.MaxAttempts,
+			Retries:        queue.Retries,
+			Paused:         queue.Paused,
+		})
+	}
+	writeJSON(w, 200, items)
 }
 func (s *Server) createQueue(w http.ResponseWriter, r *http.Request) {
 	var in model.CreateQueueRequest

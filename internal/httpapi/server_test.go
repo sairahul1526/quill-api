@@ -97,6 +97,45 @@ func TestQueueRetriesDefaultToFive(t *testing.T) {
 		t.Fatalf("retries=%d maxAttempts=%d, want both 5", queue.Retries, queue.MaxAttempts)
 	}
 }
+
+func TestListQueuesShowsMaxConcurrencyOrUnlimited(t *testing.T) {
+	memory := store.NewMemory()
+	limit := 3
+	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "limited", Concurrency: 4, MaxConcurrency: &limit}); err != nil {
+		t.Fatalf("create limited queue: %v", err)
+	}
+	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "unlimited", Concurrency: 4}); err != nil {
+		t.Fatalf("create unlimited queue: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v1/queues", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServerWithStore(memory).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusOK)
+	}
+	var queues []struct {
+		Name           string `json:"name"`
+		MaxConcurrency any    `json:"max_concurrency"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &queues); err != nil {
+		t.Fatal(err)
+	}
+	if len(queues) != 2 {
+		t.Fatalf("listed %d queues, want 2", len(queues))
+	}
+	got := map[string]any{}
+	for _, queue := range queues {
+		got[queue.Name] = queue.MaxConcurrency
+	}
+	if got["limited"] != float64(3) {
+		t.Fatalf("limited max_concurrency=%v, want 3", got["limited"])
+	}
+	if got["unlimited"] != "unlimited" {
+		t.Fatalf("unlimited max_concurrency=%v, want unlimited", got["unlimited"])
+	}
+}
+
 func TestCreateQueueRejectsInvalidConcurrency(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/queues", bytes.NewBufferString("{\"name\":\"emails\",\"concurrency\":0,\"maxAttempts\":5}"))
 	req.Header.Set("Authorization", "Bearer test-token")

@@ -42,7 +42,11 @@ paths:
         '404': { description: Task not found }
         '409': { description: Task is already finished or cancelled }
   /queues:
-    get: { summary: List queues, responses: { '200': { description: Queue list } } }
+    get:
+      summary: List queues
+      responses:
+        '200':
+          description: Queue list; max_concurrency is an integer or "unlimited" when no limit is set.
     post:
       summary: Create a queue
       requestBody:
