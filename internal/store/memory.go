@@ -29,7 +29,11 @@ func (m *Memory) id(prefix string) string {
 func (m *Memory) CreateTask(input model.CreateTaskRequest) model.Task {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, State: "queued", CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
+	retries := 5
+	if input.Retries != nil {
+		retries = *input.Retries
+	}
+	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, State: "queued", Retries: retries, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
 	m.tasks[task.ID] = task
 	return task
 }
@@ -63,7 +67,13 @@ func (m *Memory) CreateQueue(input model.CreateQueueRequest) (model.Queue, error
 	if _, ok := m.queues[input.Name]; ok {
 		return model.Queue{}, ErrConflict
 	}
-	q := model.Queue{Name: input.Name, Concurrency: input.Concurrency, MaxAttempts: input.MaxAttempts}
+	retries := 5
+	if input.Retries != nil {
+		retries = *input.Retries
+	} else if input.MaxAttempts > 0 {
+		retries = input.MaxAttempts
+	}
+	q := model.Queue{Name: input.Name, Concurrency: input.Concurrency, MaxAttempts: retries, Retries: retries}
 	m.queues[q.Name] = q
 	return q, nil
 }

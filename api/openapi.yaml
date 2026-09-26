@@ -15,6 +15,17 @@ paths:
         '200': { description: Task list }
     post:
       summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [queue, payload]
+              properties:
+                queue: { type: string }
+                payload: { type: object, additionalProperties: { type: string } }
+                retries: { type: integer, minimum: 0, default: 5, description: Retry count; defaults to 5 when omitted. }
       responses:
         '201': { description: Task created }
   /tasks/{id}/cancel:
@@ -30,7 +41,21 @@ paths:
         '404': { description: Task not found }
   /queues:
     get: { summary: List queues, responses: { '200': { description: Queue list } } }
-    post: { summary: Create a queue, responses: { '201': { description: Queue created } } }
+    post:
+      summary: Create a queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, concurrency]
+              properties:
+                name: { type: string }
+                concurrency: { type: integer, minimum: 1 }
+                retries: { type: integer, minimum: 0, default: 5, description: Retry count; defaults to 5 when omitted. }
+                maxAttempts: { type: integer, minimum: 0, deprecated: true, description: Legacy alias for retries. }
+      responses: { '201': { description: Queue created } }
   /schedules:
     get: { summary: List schedules, responses: { '200': { description: Schedule list } } }
     post: { summary: Create a schedule, responses: { '201': { description: Schedule created } } }
