@@ -84,8 +84,8 @@ func (s *Server) createQueue(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	if strings.TrimSpace(in.Name) == "" || in.Concurrency < 1 || in.MaxAttempts < 0 || (in.Retries != nil && *in.Retries < 0) {
-		writeError(w, 422, "name and positive concurrency are required; retries cannot be negative")
+	if strings.TrimSpace(in.Name) == "" || in.Concurrency < 1 || in.MaxAttempts < 0 || (in.Retries != nil && *in.Retries < 0) || (in.MaxConcurrency != nil && *in.MaxConcurrency < 1) {
+		writeError(w, 422, "name and positive concurrency are required; retries cannot be negative; max_concurrency must be at least 1")
 		return
 	}
 	q, err := s.store.CreateQueue(in)

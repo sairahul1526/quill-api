@@ -27,11 +27,12 @@ type Task struct {
 }
 
 type Queue struct {
-	Name        string `json:"name"`
-	Concurrency int    `json:"concurrency"`
-	MaxAttempts int    `json:"maxAttempts"`
-	Retries     int    `json:"retries"`
-	Paused      bool   `json:"paused"`
+	Name           string `json:"name"`
+	Concurrency    int    `json:"concurrency"`
+	MaxConcurrency *int   `json:"max_concurrency,omitempty"`
+	MaxAttempts    int    `json:"maxAttempts"`
+	Retries        int    `json:"retries"`
+	Paused         bool   `json:"paused"`
 }
 
 type Schedule struct {
@@ -50,10 +51,11 @@ type CreateTaskRequest struct {
 	Retries     *int              `json:"retries,omitempty"`
 }
 type CreateQueueRequest struct {
-	Name        string `json:"name"`
-	Concurrency int    `json:"concurrency"`
-	MaxAttempts int    `json:"maxAttempts"`
-	Retries     *int   `json:"retries,omitempty"`
+	Name           string `json:"name"`
+	Concurrency    int    `json:"concurrency"`
+	MaxConcurrency *int   `json:"max_concurrency,omitempty"`
+	MaxAttempts    int    `json:"maxAttempts"`
+	Retries        *int   `json:"retries,omitempty"`
 }
 type CreateScheduleRequest struct {
 	Queue    string `json:"queue"`

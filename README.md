@@ -17,6 +17,8 @@ Set QUILL_API_TOKEN and WEBHOOK_SECRET, then run go run ./cmd/api. The server li
 
 The in-memory store keeps this sample self-contained. A production deployment would use a durable database and worker pool. The API default retry policy allows 5 attempts.
 
-## Pausing a queue
+## Queues
 
-Call `POST /v1/queues/{name}/pause` to stop workers from claiming queued tasks. The API continues to accept new tasks for that queue while it is paused. Call `POST /v1/queues/{name}/resume` to let workers claim queued tasks again.
+Set `max_concurrency` when creating a queue to cap the number of tasks workers can run from that queue at once. Omit it for unlimited per-queue concurrency. For example, `{"name":"emails","concurrency":4,"max_concurrency":2}` allows at most two running tasks in the `emails` queue.
+
+To pause a queue, call `POST /v1/queues/{name}/pause` to stop workers from claiming queued tasks. The API continues to accept new tasks for that queue while it is paused. Call `POST /v1/queues/{name}/resume` to let workers claim queued tasks again.

@@ -13,6 +13,7 @@ import (
 var ErrNotFound = errors.New("resource not found")
 var ErrConflict = errors.New("resource already exists")
 var ErrQueuePaused = errors.New("queue is paused")
+var ErrQueueConcurrencyLimit = errors.New("queue concurrency limit reached")
 var ErrNoTaskAvailable = errors.New("no task available")
 
 type Memory struct {
@@ -62,6 +63,17 @@ func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
 	}
 	if queue.Paused {
 		return model.Task{}, ErrQueuePaused
+	}
+	if queue.MaxConcurrency != nil {
+		running := 0
+		for _, task := range m.tasks {
+			if task.Queue == queueName && task.State == "running" {
+				running++
+			}
+		}
+		if running >= *queue.MaxConcurrency {
+			return model.Task{}, ErrQueueConcurrencyLimit
+		}
 	}
 	var next model.Task
 	for _, task := range m.tasks {
@@ -133,7 +145,12 @@ func (m *Memory) CreateQueue(input model.CreateQueueRequest) (model.Queue, error
 	} else if input.MaxAttempts > 0 {
 		retries = input.MaxAttempts
 	}
-	q := model.Queue{Name: input.Name, Concurrency: input.Concurrency, MaxAttempts: retries, Retries: retries}
+	var maxConcurrency *int
+	if input.MaxConcurrency != nil {
+		value := *input.MaxConcurrency
+		maxConcurrency = &value
+	}
+	q := model.Queue{Name: input.Name, Concurrency: input.Concurrency, MaxConcurrency: maxConcurrency, MaxAttempts: retries, Retries: retries}
 	m.queues[q.Name] = q
 	return q, nil
 }

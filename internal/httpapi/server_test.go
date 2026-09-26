@@ -106,6 +106,34 @@ func TestCreateQueueRejectsInvalidConcurrency(t *testing.T) {
 		t.Fatalf("status=%d, want 422", rec.Code)
 	}
 }
+
+func TestCreateQueueRejectsMaxConcurrencyBelowOne(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/queues", bytes.NewBufferString(`{"name":"emails","concurrency":4,"max_concurrency":0}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusUnprocessableEntity)
+	}
+}
+
+func TestCreateQueueSetsMaxConcurrency(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/queues", bytes.NewBufferString(`{"name":"emails","concurrency":4,"max_concurrency":2}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusCreated)
+	}
+	var queue model.Queue
+	if err := json.Unmarshal(rec.Body.Bytes(), &queue); err != nil {
+		t.Fatal(err)
+	}
+	if queue.MaxConcurrency == nil || *queue.MaxConcurrency != 2 {
+		t.Fatalf("max_concurrency=%v, want 2", queue.MaxConcurrency)
+	}
+}
+
 func TestPauseQueueAcceptsTasksAndResumeAllowsWorkersToClaim(t *testing.T) {
 	memory := store.NewMemory()
 	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "emails", Concurrency: 4}); err != nil {
