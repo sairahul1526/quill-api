@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -59,7 +60,7 @@ func (s *Server) listTasks(w http.ResponseWriter, _ *http.Request) {
 }
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var in model.CreateTaskRequest
-	if !decode(w, r, &in) {
+	if !decodeTaskCreate(w, r, &in) {
 		return
 	}
 	if strings.TrimSpace(in.Queue) == "" || in.Payload == nil {
@@ -73,6 +74,16 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	if in.TTLSeconds != nil && *in.TTLSeconds < 1 {
 		writeError(w, 422, "ttl_seconds must be at least 1")
 		return
+	}
+	if in.Retry != nil {
+		if in.Retry.MaxAttempts == nil || in.Retry.BackoffSeconds == nil {
+			writeError(w, 400, "retry.max_attempts and retry.backoff_seconds are required")
+			return
+		}
+		if *in.Retry.MaxAttempts < 0 || *in.Retry.BackoffSeconds < 0 {
+			writeError(w, 422, "retry.max_attempts and retry.backoff_seconds cannot be negative")
+			return
+		}
 	}
 	writeJSON(w, 201, s.store.CreateTask(in))
 }
@@ -200,6 +211,24 @@ func decode(w http.ResponseWriter, r *http.Request, target any) bool {
 	}
 	return true
 }
+
+func decodeTaskCreate(w http.ResponseWriter, r *http.Request, target any) bool {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		writeError(w, http.StatusRequestEntityTooLarge, "payload exceeds 1 MiB")
+		return false
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) == nil {
+		if _, hasLegacyRetries := fields["retries"]; hasLegacyRetries {
+			writeError(w, http.StatusBadRequest, "retries is no longer supported; use retry.max_attempts")
+			return false
+		}
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return decode(w, r, target)
+}
+
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]any{"error": map[string]string{"message": message, "status": strconv.Itoa(status)}})
 }
