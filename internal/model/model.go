@@ -22,6 +22,7 @@ type Task struct {
 	State       string            `json:"state"`
 	Attempts    int               `json:"attempts"`
 	Retries     int               `json:"retries"`
+	TTLSeconds  *int              `json:"ttl_seconds,omitempty"`
 	CreatedAt   time.Time         `json:"createdAt"`
 	ScheduledAt *time.Time        `json:"scheduledAt,omitempty"`
 }
@@ -49,6 +50,7 @@ type CreateTaskRequest struct {
 	Priority    *TaskPriority     `json:"priority,omitempty"`
 	ScheduledAt *time.Time        `json:"scheduledAt,omitempty"`
 	Retries     *int              `json:"retries,omitempty"`
+	TTLSeconds  *int              `json:"ttl_seconds,omitempty"`
 }
 type CreateQueueRequest struct {
 	Name           string `json:"name"`

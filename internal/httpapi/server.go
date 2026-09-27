@@ -70,6 +70,10 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "priority must be low, normal or high")
 		return
 	}
+	if in.TTLSeconds != nil && *in.TTLSeconds < 1 {
+		writeError(w, 422, "ttl_seconds must be at least 1")
+		return
+	}
 	writeJSON(w, 201, s.store.CreateTask(in))
 }
 func (s *Server) cancelTask(w http.ResponseWriter, r *http.Request) {

@@ -78,6 +78,34 @@ func TestTaskRetriesDefaultToFive(t *testing.T) {
 		t.Fatalf("retries=%d, want 5", task.Retries)
 	}
 }
+
+func TestCreateTaskAcceptsTTLSeconds(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{},"ttl_seconds":300}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusCreated)
+	}
+	var task model.Task
+	if err := json.Unmarshal(rec.Body.Bytes(), &task); err != nil {
+		t.Fatal(err)
+	}
+	if task.TTLSeconds == nil || *task.TTLSeconds != 300 {
+		t.Fatalf("ttl_seconds=%v, want 300", task.TTLSeconds)
+	}
+}
+
+func TestCreateTaskRejectsTTLBelowOne(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{},"ttl_seconds":0}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("create status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusUnprocessableEntity)
+	}
+}
+
 func TestQueueRetriesDefaultToFive(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/queues", bytes.NewBufferString(`{"name":"emails","concurrency":4}`))
 	req.Header.Set("Authorization", "Bearer test-token")

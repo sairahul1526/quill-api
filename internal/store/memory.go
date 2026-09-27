@@ -40,13 +40,19 @@ func (m *Memory) CreateTask(input model.CreateTaskRequest) model.Task {
 	if input.Priority != nil {
 		priority = *input.Priority
 	}
-	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, Priority: priority, State: "queued", Retries: retries, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
+	var ttlSeconds *int
+	if input.TTLSeconds != nil {
+		value := *input.TTLSeconds
+		ttlSeconds = &value
+	}
+	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, Priority: priority, State: "queued", Retries: retries, TTLSeconds: ttlSeconds, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
 	m.tasks[task.ID] = task
 	return task
 }
 func (m *Memory) ListTasks() []model.Task {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.expireQueuedTasks(time.Now().UTC())
 	out := make([]model.Task, 0, len(m.tasks))
 	for _, v := range m.tasks {
 		out = append(out, v)
@@ -57,6 +63,7 @@ func (m *Memory) ListTasks() []model.Task {
 func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.expireQueuedTasks(time.Now().UTC())
 	queue, ok := m.queues[queueName]
 	if !ok {
 		return model.Task{}, ErrNotFound
@@ -92,6 +99,15 @@ func (m *Memory) ClaimTask(queueName string) (model.Task, error) {
 	next.Attempts++
 	m.tasks[next.ID] = next
 	return next, nil
+}
+
+func (m *Memory) expireQueuedTasks(now time.Time) {
+	for id, task := range m.tasks {
+		if task.State == "queued" && task.TTLSeconds != nil && now.Sub(task.CreatedAt).Seconds() >= float64(*task.TTLSeconds) {
+			task.State = "expired"
+			m.tasks[id] = task
+		}
+	}
 }
 
 func priorityRank(priority model.TaskPriority) int {
