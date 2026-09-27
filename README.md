@@ -21,6 +21,8 @@ The in-memory store keeps this sample self-contained. A production deployment wo
 
 Set `ttl_seconds` when creating a task to expire it if it remains queued for the specified number of seconds. Expired tasks move to the `expired` state and workers will not run them; omit the field for no expiry. For example, `{"queue":"emails","payload":{},"ttl_seconds":300}` expires the task if it remains queued for five minutes.
 
+Configure retries with the `retry` object, which contains `max_attempts` and `backoff_seconds`. If omitted, tasks default to 5 attempts and 0 seconds of backoff. The former integer `retries` field now returns HTTP 400; use `retry.max_attempts` instead. For example, `{"queue":"emails","payload":{},"retry":{"max_attempts":3,"backoff_seconds":10}}`.
+
 ## Queues
 
 Set `max_concurrency` when creating a queue to cap the number of tasks workers can run from that queue at once. Omit it for unlimited per-queue concurrency. For example, `{"name":"emails","concurrency":4,"max_concurrency":2}` allows at most two running tasks in the `emails` queue.

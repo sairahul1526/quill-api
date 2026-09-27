@@ -32,9 +32,9 @@ func (m *Memory) id(prefix string) string {
 func (m *Memory) CreateTask(input model.CreateTaskRequest) model.Task {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	retries := 5
-	if input.Retries != nil {
-		retries = *input.Retries
+	retry := model.RetryPolicy{MaxAttempts: 5}
+	if input.Retry != nil && input.Retry.MaxAttempts != nil && input.Retry.BackoffSeconds != nil {
+		retry = model.RetryPolicy{MaxAttempts: *input.Retry.MaxAttempts, BackoffSeconds: *input.Retry.BackoffSeconds}
 	}
 	priority := model.PriorityNormal
 	if input.Priority != nil {
@@ -45,7 +45,7 @@ func (m *Memory) CreateTask(input model.CreateTaskRequest) model.Task {
 		value := *input.TTLSeconds
 		ttlSeconds = &value
 	}
-	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, Priority: priority, State: "queued", Retries: retries, TTLSeconds: ttlSeconds, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
+	task := model.Task{ID: m.id("task"), Queue: input.Queue, Payload: input.Payload, Priority: priority, State: "queued", Retry: retry, TTLSeconds: ttlSeconds, CreatedAt: time.Now().UTC(), ScheduledAt: input.ScheduledAt}
 	m.tasks[task.ID] = task
 	return task
 }

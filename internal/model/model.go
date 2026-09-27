@@ -14,6 +14,16 @@ func (p TaskPriority) Valid() bool {
 	return p == PriorityLow || p == PriorityNormal || p == PriorityHigh
 }
 
+type RetryPolicy struct {
+	MaxAttempts    int `json:"max_attempts"`
+	BackoffSeconds int `json:"backoff_seconds"`
+}
+
+type CreateRetryPolicy struct {
+	MaxAttempts    *int `json:"max_attempts"`
+	BackoffSeconds *int `json:"backoff_seconds"`
+}
+
 type Task struct {
 	ID          string            `json:"id"`
 	Queue       string            `json:"queue"`
@@ -21,7 +31,7 @@ type Task struct {
 	Priority    TaskPriority      `json:"priority"`
 	State       string            `json:"state"`
 	Attempts    int               `json:"attempts"`
-	Retries     int               `json:"retries"`
+	Retry       RetryPolicy       `json:"retry"`
 	TTLSeconds  *int              `json:"ttl_seconds,omitempty"`
 	CreatedAt   time.Time         `json:"createdAt"`
 	ScheduledAt *time.Time        `json:"scheduledAt,omitempty"`
@@ -45,12 +55,12 @@ type Schedule struct {
 }
 
 type CreateTaskRequest struct {
-	Queue       string            `json:"queue"`
-	Payload     map[string]string `json:"payload"`
-	Priority    *TaskPriority     `json:"priority,omitempty"`
-	ScheduledAt *time.Time        `json:"scheduledAt,omitempty"`
-	Retries     *int              `json:"retries,omitempty"`
-	TTLSeconds  *int              `json:"ttl_seconds,omitempty"`
+	Queue       string             `json:"queue"`
+	Payload     map[string]string  `json:"payload"`
+	Priority    *TaskPriority      `json:"priority,omitempty"`
+	Retry       *CreateRetryPolicy `json:"retry,omitempty"`
+	ScheduledAt *time.Time         `json:"scheduledAt,omitempty"`
+	TTLSeconds  *int               `json:"ttl_seconds,omitempty"`
 }
 type CreateQueueRequest struct {
 	Name           string `json:"name"`

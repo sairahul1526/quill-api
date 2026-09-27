@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/sairahul1526/quill-api/internal/model"
@@ -60,7 +61,7 @@ func TestCancelFinishedTaskReturnsConflict(t *testing.T) {
 		t.Fatalf("cancel status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusConflict)
 	}
 }
-func TestTaskRetriesDefaultToFive(t *testing.T) {
+func TestTaskRetryPolicyDefaultsToFiveAttempts(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{"recipient":"a@example.test"}}`))
 	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
@@ -68,14 +69,42 @@ func TestTaskRetriesDefaultToFive(t *testing.T) {
 	if rec.Code != 201 {
 		t.Fatalf("create status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	var task struct {
-		Retries int `json:"retries"`
-	}
+	var task model.Task
 	if err := json.Unmarshal(rec.Body.Bytes(), &task); err != nil {
 		t.Fatal(err)
 	}
-	if task.Retries != 5 {
-		t.Fatalf("retries=%d, want 5", task.Retries)
+	if task.Retry.MaxAttempts != 5 || task.Retry.BackoffSeconds != 0 {
+		t.Fatalf("retry=%+v, want max_attempts=5 and backoff_seconds=0", task.Retry)
+	}
+}
+
+func TestCreateTaskAcceptsRetryPolicy(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{},"retry":{"max_attempts":3,"backoff_seconds":10}}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusCreated)
+	}
+	var task model.Task
+	if err := json.Unmarshal(rec.Body.Bytes(), &task); err != nil {
+		t.Fatal(err)
+	}
+	if task.Retry.MaxAttempts != 3 || task.Retry.BackoffSeconds != 10 {
+		t.Fatalf("retry=%+v, want max_attempts=3 and backoff_seconds=10", task.Retry)
+	}
+}
+
+func TestCreateTaskRejectsLegacyRetriesWithMigrationMessage(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/v1/tasks", bytes.NewBufferString(`{"queue":"emails","payload":{},"retries":3}`))
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("create status=%d body=%s, want %d", rec.Code, rec.Body.String(), http.StatusBadRequest)
+	}
+	if !strings.Contains(rec.Body.String(), "retry.max_attempts") {
+		t.Fatalf("error body=%s, want migration guidance to retry.max_attempts", rec.Body.String())
 	}
 }
 
