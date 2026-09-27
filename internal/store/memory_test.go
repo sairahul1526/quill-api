@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/sairahul1526/quill-api/internal/model"
 )
@@ -69,5 +70,50 @@ func TestClaimTaskAllowsUnlimitedConcurrencyWhenUnset(t *testing.T) {
 		if _, err := memory.ClaimTask("emails"); err != nil {
 			t.Fatalf("claim task with unset max_concurrency: %v", err)
 		}
+	}
+}
+
+func TestExpiredQueuedTaskIsMarkedExpiredAndNeverClaimed(t *testing.T) {
+	memory := NewMemory()
+	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "emails", Concurrency: 1}); err != nil {
+		t.Fatalf("create queue: %v", err)
+	}
+	ttlSeconds := 1
+	task := memory.CreateTask(model.CreateTaskRequest{Queue: "emails", Payload: map[string]string{}, TTLSeconds: &ttlSeconds})
+
+	memory.mu.Lock()
+	stored := memory.tasks[task.ID]
+	stored.CreatedAt = time.Now().UTC().Add(-2 * time.Second)
+	memory.tasks[task.ID] = stored
+	memory.mu.Unlock()
+
+	if _, err := memory.ClaimTask("emails"); !errors.Is(err, ErrNoTaskAvailable) {
+		t.Fatalf("claim expired task error=%v, want ErrNoTaskAvailable", err)
+	}
+	tasks := memory.ListTasks()
+	if len(tasks) != 1 || tasks[0].State != "expired" || tasks[0].Attempts != 0 {
+		t.Fatalf("expired task=%+v, want state expired and zero attempts", tasks)
+	}
+}
+
+func TestTaskWithoutTTLDoesNotExpire(t *testing.T) {
+	memory := NewMemory()
+	if _, err := memory.CreateQueue(model.CreateQueueRequest{Name: "emails", Concurrency: 1}); err != nil {
+		t.Fatalf("create queue: %v", err)
+	}
+	task := memory.CreateTask(model.CreateTaskRequest{Queue: "emails", Payload: map[string]string{}})
+
+	memory.mu.Lock()
+	stored := memory.tasks[task.ID]
+	stored.CreatedAt = time.Now().UTC().Add(-24 * time.Hour)
+	memory.tasks[task.ID] = stored
+	memory.mu.Unlock()
+
+	claimed, err := memory.ClaimTask("emails")
+	if err != nil {
+		t.Fatalf("claim task without TTL: %v", err)
+	}
+	if claimed.State != "running" {
+		t.Fatalf("task state=%q, want running", claimed.State)
 	}
 }

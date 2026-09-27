@@ -17,6 +17,10 @@ Set QUILL_API_TOKEN and WEBHOOK_SECRET, then run go run ./cmd/api. The server li
 
 The in-memory store keeps this sample self-contained. A production deployment would use a durable database and worker pool. The API default retry policy allows 5 attempts.
 
+## Tasks
+
+Set `ttl_seconds` when creating a task to expire it if it remains queued for the specified number of seconds. Expired tasks move to the `expired` state and workers will not run them; omit the field for no expiry. For example, `{"queue":"emails","payload":{},"ttl_seconds":300}` expires the task if it remains queued for five minutes.
+
 ## Queues
 
 Set `max_concurrency` when creating a queue to cap the number of tasks workers can run from that queue at once. Omit it for unlimited per-queue concurrency. For example, `{"name":"emails","concurrency":4,"max_concurrency":2}` allows at most two running tasks in the `emails` queue.
